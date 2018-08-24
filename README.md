@@ -1,6 +1,6 @@
 # SsbFriendBot
 
-A friendly bot that helps you with things to do with the Singapore Savings Bond.
+A friendly bot that helps you with the Singapore Savings Bond.
 
 ## Setup
 
