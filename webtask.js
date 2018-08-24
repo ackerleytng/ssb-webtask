@@ -83,7 +83,8 @@ const parsePage = function (page) {
 const sendMessage = function (ctx, message) {
   const options = {
     form: {
-      'chat_id': ctx.data.message.chat.id,
+      // If message is defined, chat and id are mandatory fields
+      'chat_id': ctx.body.message.chat.id,
       'text': message
     }
   }
@@ -104,7 +105,25 @@ const goGetSsb = function () {
   return request(options)
 }
 
+const parseInput = function (ctx) {
+  if (typeof ctx.body.message !== 'undefined' &&
+      typeof ctx.body.message.text !== 'undefined') {
+    if (ctx.body.message.text.startsWith('/fetch')) {
+      return "fetch"
+    }
+  }
+
+  console.log(`|${ctx.body.message.text}| ignored`)
+  return undefined
+}
+
 module.exports = function (ctx, cb) {
+  const cmd = parseInput(ctx)
+  if (typeof cmd === 'undefined') {
+    cb(null, {status: 'message undefined'})
+    return
+  }
+  
   goGetSsb()
     .then(parsePage)
     .then(buildSummary)
