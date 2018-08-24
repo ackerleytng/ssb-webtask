@@ -2,8 +2,8 @@ const cheerio = require('cheerio')
 const request = require('request-promise-native')
 
 const buildObj = function (pairs) {
-  let obj = {}
-  for (let [k, v] of pairs) {
+  const obj = {}
+  for (const [k, v] of pairs) {
     obj[k] = v
   }
   
@@ -61,22 +61,33 @@ const parseApplicationPeriod = function (text) {
     .map(swapCommas)
 }
 
-const displaySummary = function (issuanceDetails, issuanceRates) {
-  let [opens, closes, results] = parseApplicationPeriod(issuanceDetails['Application period'])
+const buildSummary = function (parsedPage) {
+  const [issuanceDetails, issuanceRates] = parsedPage
+  const [opens, closes, results] = parseApplicationPeriod(issuanceDetails['Application period'])
   return (`${issuanceDetails['Bond ID']}, ` +
           `${issuanceDetails['Issue date']} - ` +
           `${issuanceDetails['Maturity date']}\n` +
           `Application opens ${opens}, ` +
           `closes ${closes}\n` +
           `Interest (yrs 1-10): ${issuanceRates['interest'].join(' ')}\n` + 
-          `Averages (yrs 1-10): ${issuanceRates['avgInterest'].join(' ')}\n`)
+          `Averages (yrs 1-10): ${issuanceRates['avgInterest'].join(' ')}`)
 }
 
-const handlePage = function (page) {
+const parsePage = function (page) {
   const $ = cheerio.load(page)
   const issuanceDetails = parseIssuanceDetails($('tbody').html())
   const issuanceRates = parseIssuanceRates($('.scroll-table tbody').html())
-  console.log(displaySummary(issuanceDetails, issuanceRates))
+  return [issuanceDetails, issuanceRates]
+}
+
+const sendMessage = function (ctx, message) {
+  const options = {
+    form: {
+      'chat_id': ctx.data.message.chat.id,
+      'text': message
+    }
+  }
+  request.post(`https://api.telegram.org/bot${ctx.secrets.botApiKey}/sendMessage`, options)
 }
 
 const handleError = function (err) {
@@ -93,5 +104,12 @@ const goGetSsb = function () {
   return request(options)
 }
 
-goGetSsb()
-  .then(handlePage)
+module.exports = function (ctx, cb) {
+  goGetSsb()
+    .then(parsePage)
+    .then(buildSummary)
+    .then(m => sendMessage(ctx, m))
+    .catch(handleError)
+
+  cb(null, {status: 'ok'})
+}
