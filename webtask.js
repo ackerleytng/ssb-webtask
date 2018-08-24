@@ -105,11 +105,27 @@ const goGetSsb = function () {
   return request(options)
 }
 
+const handleCmd = function (cmd, ...args) {
+  console.log({cmd: cmd})
+  console.log({args: args})
+  if (cmd === "start") {
+    return new Promise((resolve, reject) => resolve("Hello!"))
+  } else if (cmd === "fetch") {
+    return goGetSsb()
+      .then(parsePage)
+      .then(buildSummary)
+  } else {
+    return new Promise((resolve, reject) => reject("I didn't understand that!"))
+  }
+}
+
 const parseInput = function (ctx) {
   if (typeof ctx.body.message !== 'undefined' &&
       typeof ctx.body.message.text !== 'undefined') {
     if (ctx.body.message.text.startsWith('/fetch')) {
-      return "fetch"
+      return ["fetch"]
+    } else if (ctx.body.message.text.startsWith('/start')) {
+      return ["start"]
     }
   }
 
@@ -123,10 +139,8 @@ module.exports = function (ctx, cb) {
     cb(null, {status: 'message undefined'})
     return
   }
-  
-  goGetSsb()
-    .then(parsePage)
-    .then(buildSummary)
+
+  handleCmd(...cmd)
     .then(m => sendMessage(ctx, m))
     .catch(handleError)
 
