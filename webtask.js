@@ -1,6 +1,11 @@
 const cheerio = require('cheerio')
 const request = require('request-promise-native')
 
+
+//-----------------------------------------------------
+// Helpers
+//-----------------------------------------------------
+
 const buildObj = function (pairs) {
   const obj = {}
   for (const [k, v] of pairs) {
@@ -9,6 +14,10 @@ const buildObj = function (pairs) {
   
   return obj
 }
+
+//-----------------------------------------------------
+// Getting current SSB
+//-----------------------------------------------------
 
 const parseIssuanceDetails = function (html) {
   const rows = html.split('</tr>')
@@ -80,6 +89,20 @@ const parsePage = function (page) {
   return [issuanceDetails, issuanceRates]
 }
 
+const goGetSsb = function () {
+  const options = {
+    url: 'http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx',
+    headers: {
+      'User-Agent': 'ssb-bot'
+    }
+  }
+  return request(options)
+}
+
+//-----------------------------------------------------
+// Handling output
+//-----------------------------------------------------
+
 const sendMessage = function (ctx, message) {
   const options = {
     form: {
@@ -95,15 +118,9 @@ const handleError = function (err) {
   console.log(err)
 }
 
-const goGetSsb = function () {
-  const options = {
-    url: 'http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx',
-    headers: {
-      'User-Agent': 'ssb-bot'
-    }
-  }
-  return request(options)
-}
+//-----------------------------------------------------
+// Handling inputs
+//-----------------------------------------------------
 
 const handleCmd = function (cmd, ...args) {
   console.log({cmd: cmd})
