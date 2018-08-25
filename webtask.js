@@ -47,6 +47,10 @@ const getPastSsb = function (retries, year, month) {
 }
 
 const parsePastPage = function (page) {
+  if (page.includes('No Results Found')) {
+    throw 'Can\'t find SSB data!'
+  }
+
   const clean = page
         .split('\n')
         .map(s => s
@@ -63,8 +67,8 @@ const buildPastSummary = function (info) {
   return (`${info['Issue Code']}, ` +
           `${info['Issue Date']} - ` +
           `${info['Maturity Date']}\n` +
-          `Interest (yrs 1-10) ${info['Interest'].join(' ')}\n` +
-          `Averages (yrs 1-10) ${info['Average p.a. return'].join(' ')}`)
+          `Interest (yrs 1-10): ${info['Interest'].join(' ')}\n` +
+          `Averages (yrs 1-10): ${info['Average p.a. return'].join(' ')}`)
 }
 
 const goGetPastSsb = function (rest) {
@@ -177,10 +181,6 @@ const sendMessage = function (ctx, message) {
   request.post(`https://api.telegram.org/bot${ctx.secrets.botApiKey}/sendMessage`, options)
 }
 
-const handleError = function (err) {
-  console.log(err)
-}
-
 //-----------------------------------------------------
 // Handling inputs
 //-----------------------------------------------------
@@ -279,7 +279,7 @@ const parseInput = function (ctx) {
   if (typeof ctx.body.message !== 'undefined' &&
       typeof ctx.body.message.text !== 'undefined') {
     if (ctx.body.message.text.startsWith('/fetch')) {
-      return ['fetch', ctx.body.message.text.replace('/fetch', '').trim()]
+      return ['fetch', ctx.body.message.text.replace(/\/fetch@?[a-zA-Z]*/, '').trim()]
     } else if (ctx.body.message.text.startsWith('/start')) {
       return ['start']
     }
@@ -298,7 +298,7 @@ module.exports = function (ctx, cb) {
 
   handleCmd(...cmd)
     .then(m => sendMessage(ctx, m))
-    .catch(handleError)
+    .catch(e => sendMessage(ctx, e))
 
   cb(null, {status: 'ok'})
 }
