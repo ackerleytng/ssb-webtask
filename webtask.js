@@ -8,11 +8,63 @@ const request = require('request-promise-native')
 
 const buildObj = function (pairs) {
   const obj = {}
-  for (const [k, v] of pairs) {
+  for (const p of pairs) {
+    if (p.length > 2) {
+      [k, ...v] = p
+    } else {
+      [k, v] = p
+    }
     obj[k] = v
   }
   
   return obj
+}
+
+//-----------------------------------------------------
+// Getting past SSB
+//-----------------------------------------------------
+
+const doGetPastSsb = function (year, month) {
+  return request
+    .post('https://secure.sgs.gov.sg/fdanet/StepupInterest.aspx')
+    .form({
+      __VIEWSTATE: '/wEPDwUJNDcwMDUxNTMyD2QWAmYPZBYCZg9kFgICAw9kFgICAQ9kFgICAQ9kFgICAQ9kFgYCAQ8PFgIeB1Zpc2libGVoZGQCAw8PFgIfAGhkZAIFDxBkDxYOZgIBAgICAwIEAgUCBgIHAggCCQIKAgsCDAINFg4QBQQyMDE1BQQyMDE1ZxAFBDIwMTYFBDIwMTZnEAUEMjAxNwUEMjAxN2cQBQQyMDE4BQQyMDE4ZxAFBDIwMTkFBDIwMTlnEAUEMjAyMAUEMjAyMGcQBQQyMDIxBQQyMDIxZxAFBDIwMjIFBDIwMjJnEAUEMjAyMwUEMjAyM2cQBQQyMDI0BQQyMDI0ZxAFBDIwMjUFBDIwMjVnEAUEMjAyNgUEMjAyNmcQBQQyMDI3BQQyMDI3ZxAFBDIwMjgFBDIwMjhnZGRkZVW463WAFQb/GCKmsSwEnVSyTa6z8YvHLMTXnjIKRxE=',
+      __VIEWSTATEGENERATOR: 'FD5F9DCC',
+      __EVENTVALIDATION: '/wEdAB/fPhthA6k7rJ0Bxpg63frsl264QqIgx4SkgxA/fsj2zngEK7cnNIpzZFrXY0zC1wnSFPBpH/WyrFPizMMa7f2YLvjzMZB45g61z1YqRlIQkIMD1dR1bX7LAmyzAApjG5mT78zitbhHH8hJZOOubRAcK1AG1M/+idFcsImB/TTxCMmJ91E7JR73vTpZa0pjgbxQo6eW6nkhVQ5hRj1alLBBy0Hk9xvs60uplSJV//7eJhbPhbSEYJQ+kF9r1iATDATGGpc56vID/sZfR+i33h1oy7GaUW2HSx641pLVghGcYDj15L91HkPm+Mobe8LsgmWB9i+nNjZtEceBC+0yT5MOtFDL9GpSKDAnModOrI7WRZC8KM8dWBj2FY/RugaWK04XKWnW/cboX4gctBuSGOpEU7lc/zC2Esxah2MUx+S1p8SLzpan8KgrprKICHEmGVbZ0iPwZ2VpPJLR7MBVC/MQ7TGDIv+yz9tMSpD27bFKorC60q78Qo9pk/WzfwZwPqCJrww1qxabCLhv9+8jfDZthEpxsOAUV403AnfJTA+/bTDdYRuwqJhtW4EBfMNMW4Z4J/OwCrgT4MK7Qvf4IlNkC3iuVRLBzq+4c0kK7ItzZvHw4I9H7EyDbtfm0RVkv+qPf0SeyB/j1fTO27zAX/JluXpYxxAwrTPPItfq+8nDFzPa0GX/LsWaFIZQGfjyNZ8=',
+      ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$StartYearDropDownList: year,
+      ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$StartMonthDropDownList: month,
+      ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$IssueCodeTextBox: '',
+      ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$DownloadButton: 'Download'
+    })
+}
+
+const getPastSsb = function (year, month, retries) {
+  return doGetPastSsb(year, month)
+    .catch(function (e) {
+      if (retries === 1) throw e
+      return getPastSsb(year, month, retries - 1)
+    })
+}
+
+const parsePastPage = function (page) {
+  const clean = page
+        .split('\n')
+        .map(s => s
+             .replace(':', '%')
+             .replace(/[",\*]/g, ''))
+        .filter(s => s.includes('%'))
+        .map(s => s
+             .split('%')
+             .filter(s => s.length > 0))
+  return buildObj(clean)
+}
+
+const buildPastSummary = function (info) {
+  return (`${info['Issue Code']}, ` +
+          `${info['Issue Date']} - ` +
+          `${info['Maturity Date']}\n` +
+          `Interest (yrs 1-10) ${info['Interest'].join(' ')}\n` +
+          `Averages (yrs 1-10) ${info['Average p.a. return'].join(' ')}`)
 }
 
 //-----------------------------------------------------
