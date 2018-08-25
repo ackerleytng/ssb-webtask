@@ -38,11 +38,11 @@ const doGetPastSsb = function (year, month) {
     })
 }
 
-const getPastSsb = function (year, month, retries) {
+const getPastSsb = function (retries, year, month) {
   return doGetPastSsb(year, month)
     .catch(function (e) {
       if (retries === 1) throw e
-      return getPastSsb(year, month, retries - 1)
+      return getPastSsb(retries - 1, year, month)
     })
 }
 
@@ -65,6 +65,17 @@ const buildPastSummary = function (info) {
           `${info['Maturity Date']}\n` +
           `Interest (yrs 1-10) ${info['Interest'].join(' ')}\n` +
           `Averages (yrs 1-10) ${info['Average p.a. return'].join(' ')}`)
+}
+
+const goGetPastSsb = function (rest) {
+  const [year, month] = parseFetch(rest)
+  if (typeof year === 'undefined') {
+    return new Promise((resolve, reject) => reject('Couldn\'t find a valid year!'))
+  } else if (typeof month === 'undefined') {
+    return new Promise((resolve, reject) => reject('Couldn\'t find a valid month!'))
+  } else {
+    return getPastSsb(5, year, month)
+  }
 }
 
 //-----------------------------------------------------
@@ -174,27 +185,103 @@ const handleError = function (err) {
 // Handling inputs
 //-----------------------------------------------------
 
-const handleCmd = function (cmd, ...args) {
-  console.log({cmd: cmd})
-  console.log({args: args})
-  if (cmd === "start") {
-    return new Promise((resolve, reject) => resolve("Hello!"))
-  } else if (cmd === "fetch") {
+const handleFetch = function (rest) {
+  if (rest.length === 0) {
     return goGetSsb()
       .then(parsePage)
       .then(buildSummary)
   } else {
-    return new Promise((resolve, reject) => reject("I didn't understand that!"))
+    return goGetPastSsb(rest)
+      .then(parsePastPage)
+      .then(buildPastSummary)
   }
+}
+
+const handleCmd = function (cmd, rest) {
+  console.log({cmd: cmd})
+  console.log({rest: rest})
+  if (cmd === 'start') {
+    return new Promise((resolve, reject) => resolve('Hello!'))
+  } else if (cmd === 'fetch') {
+    return handleFetch(rest)
+  } else {
+    return new Promise((resolve, reject) => reject('I didn\'t understand that!'))
+  }
+}
+
+const padYear = function (year) {
+  if (year.length == 2) {
+    if (parseInt(year) < 50) {
+      return `20${year}`
+    } else {
+      return `19${year}`
+    }
+  } else {
+    return year
+  }
+}
+
+/**
+ * Extracts the year from this string.
+ * Returns [remainder of string (trimmed), year]
+ */
+const extractYear = function (string) {
+  // Match 4 digit numbers first
+  let possibleYears = string.match(/\d{4}/g)
+
+  if (!possibleYears) {
+    possibleYears = string.match(/\d{2}/g)
+  }
+
+  if (!possibleYears) {
+    return [string, undefined]
+  }
+
+  // Assume the last number is the year
+  const year = possibleYears[possibleYears.length - 1]
+  const remainder = string.replace(year, '').trim()
+
+  return [remainder, padYear(year)]
+}
+
+const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
+                'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+const monthRegexes = months.map(s => new RegExp(`${s}[a-z]*`, 'ig'))
+
+/**
+ * Extracts the month from this string.
+ * Returns [remainder of string (trimmed), month (as string)]
+ */
+const extractMonth = function (string) {
+  const words = string.split(' ')
+
+  for (const w of words) {
+    for (const [i, r] of monthRegexes.entries()) {
+      const matches = w.match(r)
+      if (matches) {
+        // Assume the last one is the correct one
+        const month = matches[matches.length - 1]
+        return [string.replace(month, '').trim(), (i + 1).toString()]
+      }
+    }
+  }
+
+  return [string, undefined]
+}
+
+const parseFetch = function (string) {
+  let [remainder, year] = extractYear(string)
+  let [_, month] = extractMonth(remainder)
+  return [year, month]
 }
 
 const parseInput = function (ctx) {
   if (typeof ctx.body.message !== 'undefined' &&
       typeof ctx.body.message.text !== 'undefined') {
     if (ctx.body.message.text.startsWith('/fetch')) {
-      return ["fetch"]
+      return ['fetch', ctx.body.message.text.replace('/fetch', '').trim()]
     } else if (ctx.body.message.text.startsWith('/start')) {
-      return ["start"]
+      return ['start']
     }
   }
 
