@@ -2,6 +2,17 @@
 
 A friendly bot that helps you with the Singapore Savings Bond.
 
+## Usage
+
+Add SsbFriendBot from https://t.me/SsbFriendBot
+
+Try:
+
++ `/fetch`
++ `/fetch june 2018`
++ `/fetch 17 May`
++ `/fetch Dec 15`
+
 ## Setup
 
 Put this up on webtask.io
@@ -34,4 +45,7 @@ Test parsing the webpage with
 
 ```
 ./main.js
+./main.js --current
+./main.js --past 2016 8
+./main.js --parse
 ```
