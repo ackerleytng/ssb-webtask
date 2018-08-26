@@ -213,7 +213,9 @@ const handleCmd = function (cmd, rest) {
   console.log({cmd: cmd})
   console.log({rest: rest})
   if (cmd === 'start') {
-    return new Promise((resolve, reject) => resolve('Hello!'))
+    return new Promise((resolve, reject) => resolve('Hello! SsbFriendBot tries to be as accurate as possible ' +
+                                                    'while reading govt websites and is not responsible for any ' +
+                                                    'of your investment decisions.'))
   } else if (cmd === 'fetch') {
     return handleFetch(rest)
   } else {
