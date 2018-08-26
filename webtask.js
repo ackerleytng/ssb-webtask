@@ -1,6 +1,14 @@
 const cheerio = require('cheerio')
 const request = require('request-promise-native')
 
+//-----------------------------------------------------
+// Constants
+//-----------------------------------------------------
+
+const disclaimer = [
+  'SsbFriendBot tries to be as accurate as possible while reading govt websites.',
+  'It will not be responsible for any of your investment decisions.'
+]
 
 //-----------------------------------------------------
 // Helpers
@@ -213,9 +221,10 @@ const handleCmd = function (cmd, rest) {
   console.log({cmd: cmd})
   console.log({rest: rest})
   if (cmd === 'start') {
-    return new Promise((resolve, reject) => resolve('Hello! SsbFriendBot tries to be as accurate as possible ' +
-                                                    'while reading govt websites and is not responsible for any ' +
-                                                    'of your investment decisions.'))
+    const lines = ['Hello!'].concat(disclaimer)
+    return new Promise((resolve, reject) => resolve(lines.join('\n')))
+  } else if (cmd === 'disclaimer') {
+    return new Promise((resolve, reject) => resolve(disclaimer.join('\n')))
   } else if (cmd === 'fetch') {
     return handleFetch(rest)
   } else {
@@ -305,6 +314,8 @@ const parseInput = function (message) {
     return ['fetch', message.text.replace(/\/fetch@?[a-zA-Z]*/, '').trim()]
   } else if (message.text.startsWith('/start')) {
     return ['start']
+  } else if (message.text.startsWith('/disclaimer')) {
+    return ['disclaimer']
   }
 
   console.log(`|${message.text}| ignored`)
