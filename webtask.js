@@ -20,29 +20,46 @@ const buildObj = function (pairs) {
   return obj
 }
 
+const getUrl = function (url) {
+  const options = {
+    url: url,
+    headers: {
+      'User-Agent': 'ssb-bot'
+    }
+  }
+  return request(options)
+}
+
 //-----------------------------------------------------
 // Getting past SSB
 //-----------------------------------------------------
 
-const doGetPastSsb = function (year, month) {
+const parseHiddenFields = function (page) {
+  const $ = cheerio.load(page)
+  return {
+    __VIEWSTATE: $('#__VIEWSTATE').attr('value'),
+    __VIEWSTATEGENERATOR: $('#__VIEWSTATEGENERATOR').attr('value'),
+    __EVENTVALIDATION: $('#__EVENTVALIDATION').attr('value')
+  }
+}
+
+const doGetPastSsb = function (hiddenFields, year, month) {
   return request
     .post('https://secure.sgs.gov.sg/fdanet/StepupInterest.aspx')
-    .form({
-      __VIEWSTATE: '/wEPDwUJNDcwMDUxNTMyD2QWAmYPZBYCZg9kFgICAw9kFgICAQ9kFgICAQ9kFgICAQ9kFgYCAQ8PFgIeB1Zpc2libGVoZGQCAw8PFgIfAGhkZAIFDxBkDxYOZgIBAgICAwIEAgUCBgIHAggCCQIKAgsCDAINFg4QBQQyMDE1BQQyMDE1ZxAFBDIwMTYFBDIwMTZnEAUEMjAxNwUEMjAxN2cQBQQyMDE4BQQyMDE4ZxAFBDIwMTkFBDIwMTlnEAUEMjAyMAUEMjAyMGcQBQQyMDIxBQQyMDIxZxAFBDIwMjIFBDIwMjJnEAUEMjAyMwUEMjAyM2cQBQQyMDI0BQQyMDI0ZxAFBDIwMjUFBDIwMjVnEAUEMjAyNgUEMjAyNmcQBQQyMDI3BQQyMDI3ZxAFBDIwMjgFBDIwMjhnZGRkZVW463WAFQb/GCKmsSwEnVSyTa6z8YvHLMTXnjIKRxE=',
-      __VIEWSTATEGENERATOR: 'FD5F9DCC',
-      __EVENTVALIDATION: '/wEdAB/fPhthA6k7rJ0Bxpg63frsl264QqIgx4SkgxA/fsj2zngEK7cnNIpzZFrXY0zC1wnSFPBpH/WyrFPizMMa7f2YLvjzMZB45g61z1YqRlIQkIMD1dR1bX7LAmyzAApjG5mT78zitbhHH8hJZOOubRAcK1AG1M/+idFcsImB/TTxCMmJ91E7JR73vTpZa0pjgbxQo6eW6nkhVQ5hRj1alLBBy0Hk9xvs60uplSJV//7eJhbPhbSEYJQ+kF9r1iATDATGGpc56vID/sZfR+i33h1oy7GaUW2HSx641pLVghGcYDj15L91HkPm+Mobe8LsgmWB9i+nNjZtEceBC+0yT5MOtFDL9GpSKDAnModOrI7WRZC8KM8dWBj2FY/RugaWK04XKWnW/cboX4gctBuSGOpEU7lc/zC2Esxah2MUx+S1p8SLzpan8KgrprKICHEmGVbZ0iPwZ2VpPJLR7MBVC/MQ7TGDIv+yz9tMSpD27bFKorC60q78Qo9pk/WzfwZwPqCJrww1qxabCLhv9+8jfDZthEpxsOAUV403AnfJTA+/bTDdYRuwqJhtW4EBfMNMW4Z4J/OwCrgT4MK7Qvf4IlNkC3iuVRLBzq+4c0kK7ItzZvHw4I9H7EyDbtfm0RVkv+qPf0SeyB/j1fTO27zAX/JluXpYxxAwrTPPItfq+8nDFzPa0GX/LsWaFIZQGfjyNZ8=',
+    .form(Object.assign(hiddenFields, {
       ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$StartYearDropDownList: year,
       ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$StartMonthDropDownList: month,
       ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$IssueCodeTextBox: '',
       ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$DownloadButton: 'Download'
-    })
+    }))
 }
 
-const getPastSsb = function (retries, year, month) {
-  return doGetPastSsb(year, month)
+const getPastSsb = function (retries, hiddenFields, year, month) {
+  return doGetPastSsb(hiddenFields, year, month)
     .catch(function (e) {
       if (retries === 1) throw e
-      return getPastSsb(retries - 1, year, month)
+      console.log({retries: retries})
+      return getPastSsb(retries - 1, hiddenFields, year, month)
     })
 }
 
@@ -78,7 +95,9 @@ const goGetPastSsb = function (rest) {
   } else if (typeof month === 'undefined') {
     return new Promise((resolve, reject) => reject('Couldn\'t find a valid month!'))
   } else {
-    return getPastSsb(5, year, month)
+    return getUrl('https://secure.sgs.gov.sg/fdanet/StepupInterest.aspx')
+      .then(parseHiddenFields)
+      .then(hiddenFields => getPastSsb(5, hiddenFields, year, month))
   }
 }
 
@@ -156,29 +175,22 @@ const parsePage = function (page) {
   return [issuanceDetails, issuanceRates]
 }
 
-const goGetSsb = function () {
-  const options = {
-    url: 'http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx',
-    headers: {
-      'User-Agent': 'ssb-bot'
-    }
-  }
-  return request(options)
-}
-
 //-----------------------------------------------------
 // Handling output
 //-----------------------------------------------------
 
-const sendMessage = function (ctx, message) {
+/**
+ * Sends the message message. msg is the Message object that Telegram sent us
+ */
+const sendMessage = function (msg, apiKey, message) {
   const options = {
     form: {
-      // If message is defined, chat and id are mandatory fields
-      'chat_id': ctx.body.message.chat.id,
+      // If Message is defined, chat and id are mandatory fields
+      'chat_id': msg.chat.id,
       'text': message
     }
   }
-  request.post(`https://api.telegram.org/bot${ctx.secrets.botApiKey}/sendMessage`, options)
+  request.post(`https://api.telegram.org/bot${apiKey}/sendMessage`, options)
 }
 
 //-----------------------------------------------------
@@ -187,7 +199,7 @@ const sendMessage = function (ctx, message) {
 
 const handleFetch = function (rest) {
   if (rest.length === 0) {
-    return goGetSsb()
+    return getUrl('http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx')
       .then(parsePage)
       .then(buildSummary)
   } else {
@@ -275,30 +287,44 @@ const parseFetch = function (string) {
   return [year, month]
 }
 
-const parseInput = function (ctx) {
-  if (typeof ctx.body.message !== 'undefined' &&
-      typeof ctx.body.message.text !== 'undefined') {
-    if (ctx.body.message.text.startsWith('/fetch')) {
-      return ['fetch', ctx.body.message.text.replace(/\/fetch@?[a-zA-Z]*/, '').trim()]
-    } else if (ctx.body.message.text.startsWith('/start')) {
-      return ['start']
-    }
+const getMessage = function (ctx) {
+  // Figure out message or edited_message first
+  if (typeof ctx.body.message !== 'undefined') {
+    return ctx.body.message
+  } else if (typeof ctx.body.edited_message !== 'undefined') {
+    return ctx.body.edited_message
   }
 
-  console.log(`|${ctx.body.message.text}| ignored`)
+  return undefined
+}
+
+const parseInput = function (message) {
+  if (message.text.startsWith('/fetch')) {
+    return ['fetch', message.text.replace(/\/fetch@?[a-zA-Z]*/, '').trim()]
+  } else if (message.text.startsWith('/start')) {
+    return ['start']
+  }
+
+  console.log(`|${message.text}| ignored`)
   return undefined
 }
 
 module.exports = function (ctx, cb) {
-  const cmd = parseInput(ctx)
+  const msg = getMessage(ctx)
+  if (typeof msg === 'undefined') {
+    cb(null, {status: 'Message object undefined'})
+    return
+  }
+
+  const cmd = parseInput(msg)
   if (typeof cmd === 'undefined') {
-    cb(null, {status: 'message undefined'})
+    cb(null, {status: 'can\'t handle message'})
     return
   }
 
   handleCmd(...cmd)
-    .then(m => sendMessage(ctx, m))
-    .catch(e => sendMessage(ctx, e))
+    .then(m => sendMessage(msg, ctx.secrets.botApiKey, m))
+    .catch(e => sendMessage(msg, ctx.secrets.botApiKey, e))
 
   cb(null, {status: 'ok'})
 }

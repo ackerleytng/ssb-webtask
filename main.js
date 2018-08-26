@@ -4,24 +4,28 @@ const rewire = require('rewire')
 const webtask = rewire('./webtask.js')
 
 const testCurrentSsb = function () {
-  const goGetSsb = webtask.__get__('goGetSsb')
+  const getUrl = webtask.__get__('getUrl')
   const parsePage = webtask.__get__('parsePage')
   const buildSummary = webtask.__get__('buildSummary')
 
   console.log('testCurrentSsb =======')
-  goGetSsb()
+  getUrl('http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx')
     .then(parsePage)
     .then(buildSummary)
     .then(s => console.log(s))
 }
 
 const testFetchPast = function (year, month) {
+  const getUrl = webtask.__get__('getUrl')
   const getPastSsb = webtask.__get__('getPastSsb')
+  const parseHiddenFields = webtask.__get__('parseHiddenFields')
   const parsePastPage = webtask.__get__('parsePastPage')
   const buildPastSummary = webtask.__get__('buildPastSummary')
 
   console.log('testFetchPast ========')
-  getPastSsb(5, year, month)
+  getUrl('https://secure.sgs.gov.sg/fdanet/StepupInterest.aspx')
+    .then(parseHiddenFields)
+    .then(hiddenFields => getPastSsb(5, hiddenFields, year, month))
     .then(parsePastPage)
     .then(buildPastSummary)
     .then(s => console.log(s))
