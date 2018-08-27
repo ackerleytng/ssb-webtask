@@ -73,9 +73,9 @@ const getPastSsb = function (retries, hiddenFields, year, month) {
     })
 }
 
-const parsePastPage = function (page) {
+const parsePastPage = function ([page, year, month]) {
   if (page.includes('No Results Found')) {
-    throw 'Can\'t find SSB data!'
+    throw `Can't find SSB data for ${moment(`${year} ${month}`, 'YYYY MM').format('MMM YYYY')}!`
   }
 
   const clean = page
@@ -108,6 +108,7 @@ const goGetPastSsb = function (rest) {
     return getUrl('https://secure.sgs.gov.sg/fdanet/StepupInterest.aspx')
       .then(parseHiddenFields)
       .then(hiddenFields => getPastSsb(5, hiddenFields, year, month))
+      .then(p => [p, year, month])
   }
 }
 
