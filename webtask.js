@@ -26,7 +26,7 @@ const buildObj = function (pairs) {
     }
     obj[k] = v
   }
-  
+
   return obj
 }
 
@@ -174,7 +174,7 @@ const buildSummary = function (parsedPage) {
           `${issuanceDetails['Maturity date']}\n` +
           `Application opens ${opens}, ` +
           `closes ${closes}\n` +
-          `Interest (yrs 1-10): ${issuanceRates['interest'].join(' ')}\n` + 
+          `Interest (yrs 1-10): ${issuanceRates['interest'].join(' ')}\n` +
           `Averages (yrs 1-10): ${issuanceRates['avgInterest'].join(' ')}`)
 }
 
@@ -271,9 +271,18 @@ const minAmountForSwitchingToBeWorthIt = function(prevInterests, currInterests,
   return 400 / actualMonthsCanHold / (currEffectiveRate - prevEffectiveRate)
 }
 
-const buildSwitchDecision = function ([minAmt, prevInterests, currInterests]) {
-  const sentences = [`Previous Interest Rates: ${prevInterests.join(', ')}`,
-                  `Current Interest Rates: ${currInterests.join(', ')}`]
+const buildSwitchDecision = function (currDate, currInterests, prevDate, prevInterests,
+                                      holdMonths) {
+  const prev = moment(prevDate, 'DD MMM YYYY')
+  const curr = moment(currDate, 'DD MMM YYYY')
+  const monthsIn = curr.diff(prev, 'months')
+
+  const minAmt = minAmountForSwitchingToBeWorthIt(prevInterests.map(parseFloat),
+                                                  currInterests.map(parseFloat),
+                                                  monthsIn, holdMonths)
+
+  const sentences = [`${prev.format('MMM YYYY')} Interest Rates: ${prevInterests.join(', ')}`,
+                     `${curr.format('MMM YYYY')} Interest Rates: ${currInterests.join(', ')}`]
   if (minAmt <= 0) {
     sentences.push('You should not switch.')
   } else {
@@ -297,14 +306,9 @@ const handleSwitchFrom = function (rest) {
 
   return Promise.all([pCurrent, pPrev])
     .then(([[currDate, currInterests], [prevDate, prevInterests]]) =>
-          [minAmountForSwitchingToBeWorthIt(prevInterests.map(parseFloat),
-                                            currInterests.map(parseFloat),
-                                            moment(currDate, 'DD MMM YYYY').diff(
-                                              moment(prevDate, 'DD MMM YYYY'),
-                                              'months'),
-                                            holdMonths),
-           prevInterests, currInterests])
-    .then(buildSwitchDecision)
+          buildSwitchDecision(currDate, currInterests,
+                              prevDate, prevInterests,
+                              holdMonths))
 }
 
 //-----------------------------------------------------
