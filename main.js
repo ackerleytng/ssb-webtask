@@ -32,10 +32,10 @@ const testFetchPast = function (year, month) {
     .catch(e => console.log(e))
 }
 
-const testParseFetch = function (string) {
-  const parseFetch = webtask.__get__('parseFetch')
+const testParseYearMonth = function (string) {
+  const parseYearMonth = webtask.__get__('parseYearMonth')
 
-  result = parseFetch(string)
+  result = parseYearMonth(string)
   console.log(result)
   return result
 }
@@ -47,28 +47,28 @@ const arrayEqual = function (a, b) {
 if (process.argv.length == 2) {
   testCurrentSsb()
   testFetchPast('2018', '6')
-  testParseFetch('june 18')
+  testParseYearMonth('june 18')
 } else if (process.argv.length > 2) {
   if ('--current'.startsWith(process.argv[2])) {
     testCurrentSsb()
   } else if ('--past'.startsWith(process.argv[2])) {
     testFetchPast(process.argv[3], process.argv[4])
   } else if ('--parse'.startsWith(process.argv[2])) {
-    console.log(arrayEqual(testParseFetch('june 2018'), ['2018', '6']))
-    console.log(arrayEqual(testParseFetch('june 18'), ['2018', '6']))
-    console.log(arrayEqual(testParseFetch('june 98'), ['1998', '6']))
-    console.log(arrayEqual(testParseFetch('17'), ['2017', undefined]))
-    console.log(arrayEqual(testParseFetch('may'), [undefined, '5']))
-    console.log(arrayEqual(testParseFetch('15 jan'), ['2015', '1']))
-    console.log(arrayEqual(testParseFetch('feb 16'), ['2016', '2']))
-    console.log(arrayEqual(testParseFetch('March 16'), ['2016', '3']))
-    console.log(arrayEqual(testParseFetch('foo 16'), ['2016', undefined]))
-    console.log(arrayEqual(testParseFetch(' apr 16'), ['2016', '4']))
-    console.log(arrayEqual(testParseFetch(' jully 13'), ['2013', '7']))
-    console.log(arrayEqual(testParseFetch(' aug 14'), ['2014', '8']))
-    console.log(arrayEqual(testParseFetch(' September    14'), ['2014', '9']))
-    console.log(arrayEqual(testParseFetch('oct    18'), ['2018', '10']))
-    console.log(arrayEqual(testParseFetch('November 17'), ['2017', '11']))
-    console.log(arrayEqual(testParseFetch('decem 17'), ['2017', '12']))
+    console.log(arrayEqual(testParseYearMonth('june 2018'), ['2018', '6']))
+    console.log(arrayEqual(testParseYearMonth('june 18'), ['2018', '6']))
+    console.log(arrayEqual(testParseYearMonth('june 98'), ['1998', '6']))
+    console.log(arrayEqual(testParseYearMonth('17'), ['2017', undefined]))
+    console.log(arrayEqual(testParseYearMonth('may'), [undefined, '5']))
+    console.log(arrayEqual(testParseYearMonth('15 jan'), ['2015', '1']))
+    console.log(arrayEqual(testParseYearMonth('feb 16'), ['2016', '2']))
+    console.log(arrayEqual(testParseYearMonth('March 16'), ['2016', '3']))
+    console.log(arrayEqual(testParseYearMonth('foo 16'), ['2016', undefined]))
+    console.log(arrayEqual(testParseYearMonth(' apr 16'), ['2016', '4']))
+    console.log(arrayEqual(testParseYearMonth(' jully 13'), ['2013', '7']))
+    console.log(arrayEqual(testParseYearMonth(' aug 14'), ['2014', '8']))
+    console.log(arrayEqual(testParseYearMonth(' September    14'), ['2014', '9']))
+    console.log(arrayEqual(testParseYearMonth('oct    18'), ['2018', '10']))
+    console.log(arrayEqual(testParseYearMonth('November 17'), ['2017', '11']))
+    console.log(arrayEqual(testParseYearMonth('decem 17'), ['2017', '12']))
   }
 }

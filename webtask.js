@@ -97,7 +97,7 @@ const buildPastSummary = function (info) {
 }
 
 const goGetPastSsb = function (rest) {
-  const [year, month] = parseFetch(rest)
+  const [year, month] = parseYearMonth(rest)
   if (typeof year === 'undefined') {
     return new Promise((resolve, reject) => reject('Couldn\'t find a valid year!'))
   } else if (typeof month === 'undefined') {
@@ -292,7 +292,7 @@ const extractMonth = function (string) {
   return [string, undefined]
 }
 
-const parseFetch = function (string) {
+const parseYearMonth = function (string) {
   let [remainder, year] = extractYear(string)
   let [_, month] = extractMonth(remainder)
   return [year, month]
