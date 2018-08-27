@@ -11,6 +11,58 @@ const disclaimer = [
 ]
 
 //-----------------------------------------------------
+// Switching from
+//-----------------------------------------------------
+
+/**
+ * Extract hold duration and return the remainder of the string
+ * ('/switchfrom' is elided), since it would be removed from the string already
+ * + jun 18, hold 60 months
+ * + jun 18, hold 5 years
+ * + jun 18, hold 7.4 years
+ * + jun 18, hold 1 year 6 months
+ * + jun 18
+ */
+const extractHoldDuration = function (string) {
+  if (!(string.match(/year/i) || string.match(/month/i))) {
+    if (string.includes(',') || string.match(/hold/i)) {
+      throw ('I don\'t understand how long you want to hold the bond for!' +
+             'Try something like "jun 18, hold 5 years"')
+    } else {
+      return [string, 120]
+    }
+  } else {
+    const yearMonthMatches = string.match(/,\s*hold\s*(\d+)\s*years?\s*(\d+)\s*months?/i)
+    if (yearMonthMatches) {
+      const months = parseInt(yearMonthMatches[1]) * 12 + parseInt(yearMonthMatches[2])
+      return [string.replace(yearMonthMatches[0], '').trim(), months]
+    }
+
+    const monthMatches = string.match(/,\s*hold\s*([\d\.]+)\s*months?/i)
+    if (monthMatches) {
+      const months = Math.floor(parseFloat(monthMatches[1]))
+      return [string.replace(monthMatches[0], '').trim(), months]
+    }
+
+    const yearMatches = string.match(/,\s*hold\s*([\d\.]+)\s*years?/i)
+    if (yearMatches) {
+      const months = Math.floor(parseFloat(yearMatches[1]) * 12)
+      return [string.replace(yearMatches[0], '').trim(), months]
+    }
+
+    throw ('Not sure if i understand what you meant!' +
+           'Try something like "jun 18, hold 5 years"')
+  }
+}
+
+/**
+ * Parse a switch from command, which should take the form
+ */
+const parseSwitchFrom = function (string) {
+  return extractHoldDuration(string)
+}
+
+//-----------------------------------------------------
 // Helpers
 //-----------------------------------------------------
 

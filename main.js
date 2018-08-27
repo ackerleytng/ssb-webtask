@@ -40,6 +40,12 @@ const testParseYearMonth = function (string) {
   return result
 }
 
+const testExtractHoldDuration = function (string) {
+  const extractHoldDuration = webtask.__get__('extractHoldDuration')
+
+  return extractHoldDuration(string)
+}
+
 const arrayEqual = function (a, b) {
   return a.toString() === b.toString()
 }
@@ -70,5 +76,22 @@ if (process.argv.length == 2) {
     console.log(arrayEqual(testParseYearMonth('oct    18'), ['2018', '10']))
     console.log(arrayEqual(testParseYearMonth('November 17'), ['2017', '11']))
     console.log(arrayEqual(testParseYearMonth('decem 17'), ['2017', '12']))
+  } else if ('--parseSwitchFrom'.startsWith(process.argv[2])) {
+    console.log(arrayEqual(testExtractHoldDuration('jun 18, hold 60 months'),
+                           [ 'jun 18', 60 ]))
+    console.log(arrayEqual(testExtractHoldDuration('jun 18, hold 48   Months'),
+                           [ 'jun 18', 48 ]))
+    console.log(arrayEqual(testExtractHoldDuration('jun 18, hold   5.8   Months'),
+                           [ 'jun 18', 5 ]))
+    console.log(arrayEqual(testExtractHoldDuration('jun 18, hold 5 Years'),
+                           [ 'jun 18', 60 ]))
+    console.log(arrayEqual(testExtractHoldDuration('jun 18, hold 7.4 years'),
+                           [ 'jun 18', 88 ]))
+    console.log(arrayEqual(testExtractHoldDuration('jun 18, hold 1 year 6 months'),
+                           [ 'jun 18', 18 ]))
+    console.log(arrayEqual(testExtractHoldDuration('jun 18, hold 10 years  11 months'),
+                           [ 'jun 18', 131 ]))
+    console.log(arrayEqual(testExtractHoldDuration('jun 18'),
+                           [ 'jun 18', 120 ]))
   }
 }
