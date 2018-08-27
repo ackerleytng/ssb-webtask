@@ -1,5 +1,7 @@
 const cheerio = require('cheerio')
 const request = require('request-promise-native')
+const math = require('mathjs')
+const moment = require('moment')
 
 //-----------------------------------------------------
 // Constants
@@ -9,58 +11,6 @@ const disclaimer = [
   'SsbFriendBot tries to be as accurate as possible while reading govt websites.',
   'It will not be responsible for any of your investment decisions.'
 ]
-
-//-----------------------------------------------------
-// Switching from
-//-----------------------------------------------------
-
-/**
- * Extract hold duration and return the remainder of the string
- * ('/switchfrom' is elided), since it would be removed from the string already
- * + jun 18, hold 60 months
- * + jun 18, hold 5 years
- * + jun 18, hold 7.4 years
- * + jun 18, hold 1 year 6 months
- * + jun 18
- */
-const extractHoldDuration = function (string) {
-  if (!(string.match(/year/i) || string.match(/month/i))) {
-    if (string.includes(',') || string.match(/hold/i)) {
-      throw ('I don\'t understand how long you want to hold the bond for!' +
-             'Try something like "jun 18, hold 5 years"')
-    } else {
-      return [string, 120]
-    }
-  } else {
-    const yearMonthMatches = string.match(/,\s*hold\s*(\d+)\s*years?\s*(\d+)\s*months?/i)
-    if (yearMonthMatches) {
-      const months = parseInt(yearMonthMatches[1]) * 12 + parseInt(yearMonthMatches[2])
-      return [string.replace(yearMonthMatches[0], '').trim(), months]
-    }
-
-    const monthMatches = string.match(/,\s*hold\s*([\d\.]+)\s*months?/i)
-    if (monthMatches) {
-      const months = Math.floor(parseFloat(monthMatches[1]))
-      return [string.replace(monthMatches[0], '').trim(), months]
-    }
-
-    const yearMatches = string.match(/,\s*hold\s*([\d\.]+)\s*years?/i)
-    if (yearMatches) {
-      const months = Math.floor(parseFloat(yearMatches[1]) * 12)
-      return [string.replace(yearMatches[0], '').trim(), months]
-    }
-
-    throw ('Not sure if i understand what you meant!' +
-           'Try something like "jun 18, hold 5 years"')
-  }
-}
-
-/**
- * Parse a switch from command, which should take the form
- */
-const parseSwitchFrom = function (string) {
-  return extractHoldDuration(string)
-}
 
 //-----------------------------------------------------
 // Helpers
@@ -254,6 +204,110 @@ const sendMessage = function (msg, apiKey, message) {
 }
 
 //-----------------------------------------------------
+// Switching from
+//-----------------------------------------------------
+
+/**
+ * Extract hold duration and return the remainder of the string
+ * ('/switchfrom' is elided), since it would be removed from the string already
+ * + jun 18, hold 60 months
+ * + jun 18, hold 5 years
+ * + jun 18, hold 7.4 years
+ * + jun 18, hold 1 year 6 months
+ * + jun 18
+ */
+const extractHoldDuration = function (string) {
+  if (!(string.match(/year/i) || string.match(/month/i))) {
+    if (string.includes(',') || string.match(/hold/i)) {
+      throw ('I don\'t understand how long you want to hold the bond for!' +
+             'Try something like "jun 18, hold 5 years"')
+    } else {
+      return [string, 120]
+    }
+  } else {
+    const yearMonthMatches = string.match(/,\s*hold\s*(\d+)\s*years?\s*(\d+)\s*months?/i)
+    if (yearMonthMatches) {
+      const months = parseInt(yearMonthMatches[1]) * 12 + parseInt(yearMonthMatches[2])
+      return [string.replace(yearMonthMatches[0], '').trim(), months]
+    }
+
+    const monthMatches = string.match(/,\s*hold\s*([\d\.]+)\s*months?/i)
+    if (monthMatches) {
+      const months = Math.floor(parseFloat(monthMatches[1]))
+      return [string.replace(monthMatches[0], '').trim(), months]
+    }
+
+    const yearMatches = string.match(/,\s*hold\s*([\d\.]+)\s*years?/i)
+    if (yearMatches) {
+      const months = Math.floor(parseFloat(yearMatches[1]) * 12)
+      return [string.replace(yearMatches[0], '').trim(), months]
+    }
+
+    throw ('Not sure if i understand what you meant!' +
+           'Try something like "jun 18, hold 5 years"')
+  }
+}
+
+const computeEffectiveMonthlyInterestRate = function (interests, numMonthsIn,
+                                                      numMonthsGoingToHold) {
+  const monthlyInterests = interests.reduce((acc, i) => acc.concat(new Array(12).fill(i / 12)), [])
+  const remainingMonths = monthlyInterests.length - numMonthsIn
+  const monthsToHold = Math.min(remainingMonths, numMonthsGoingToHold)
+
+  return math.mean(monthlyInterests.slice(numMonthsIn, numMonthsIn + monthsToHold))
+}
+
+const minAmountForSwitchingToBeWorthIt = function(prevInterests, currInterests,
+                                                  numMonthsIn, numMonthsGoingToHold) {
+  const actualMonthsCanHold = Math.min(120 - numMonthsIn, numMonthsGoingToHold)
+  const prevEffectiveRate = computeEffectiveMonthlyInterestRate(prevInterests, numMonthsIn,
+                                                                actualMonthsCanHold)
+  const currEffectiveRate = computeEffectiveMonthlyInterestRate(currInterests, 0,
+                                                                actualMonthsCanHold)
+
+  // Worth it if
+  // AmtInSSB * (currEffectiveRate - prevEffectiveRate) / 100 * actualMonthsCanHold > 4
+  //   ($4 transaction fees)
+  return 400 / actualMonthsCanHold / (currEffectiveRate - prevEffectiveRate)
+}
+
+const buildSwitchDecision = function ([minAmt, prevInterests, currInterests]) {
+  const sentences = [`Previous Interest Rates: ${prevInterests.join(', ')}`,
+                  `Current Interest Rates: ${currInterests.join(', ')}`]
+  if (minAmt <= 0) {
+    sentences.push('You should not switch.')
+  } else {
+    sentences.push('You should switch if you think you\'re lucky enough to ' +
+                   `switch SGD ${Math.ceil(minAmt)} worth of SSBs.`)
+  }
+
+  return sentences.join('\n')
+}
+
+const handleSwitchFrom = function (rest) {
+  const [remainder, holdMonths] = extractHoldDuration(rest)
+
+  pCurrent = getUrl('http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx')
+    .then(parsePage)
+    .then(([issuanceDetails, issuanceRates]) =>
+          [issuanceDetails['Issue date'], issuanceRates['interest']])
+  pPrev = goGetPastSsb(remainder)
+    .then(parsePastPage)
+    .then(info => [info['Issue Date'], info['Interest']])
+
+  return Promise.all([pCurrent, pPrev])
+    .then(([[currDate, currInterests], [prevDate, prevInterests]]) =>
+          [minAmountForSwitchingToBeWorthIt(prevInterests.map(parseFloat),
+                                            currInterests.map(parseFloat),
+                                            moment(currDate, 'DD MMM YYYY').diff(
+                                              moment(prevDate, 'DD MMM YYYY'),
+                                              'months'),
+                                            holdMonths),
+           prevInterests, currInterests])
+    .then(buildSwitchDecision)
+}
+
+//-----------------------------------------------------
 // Handling inputs
 //-----------------------------------------------------
 
@@ -279,6 +333,8 @@ const handleCmd = function (cmd, rest) {
     return new Promise((resolve, reject) => resolve(disclaimer.join('\n')))
   } else if (cmd === 'fetch') {
     return handleFetch(rest)
+  } else if (cmd === 'switchfrom') {
+    return handleSwitchFrom(rest)
   } else {
     return new Promise((resolve, reject) => reject('I didn\'t understand that!'))
   }
@@ -368,6 +424,8 @@ const parseInput = function (message) {
     return ['start']
   } else if (message.text.startsWith('/disclaimer')) {
     return ['disclaimer']
+  } else if (message.text.startsWith('/switchfrom')) {
+    return ['switchfrom', message.text.replace(/\/switchfrom@?[a-zA-Z]*/, '').trim()]
   }
 
   console.log(`|${message.text}| ignored`)

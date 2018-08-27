@@ -46,6 +46,31 @@ const testExtractHoldDuration = function (string) {
   return extractHoldDuration(string)
 }
 
+const testMonthlyInterestRate = function () {
+  const computeEffectiveMonthlyInterestRate = webtask.__get__('computeEffectiveMonthlyInterestRate')
+
+  const jun2018Interest = [1.68, 2.14, 2.21, 2.21, 2.30, 2.52, 2.67, 2.81, 2.96, 3.12]
+  const aug2018Interest = [1.78, 2.16, 2.37, 2.54, 2.67, 2.76, 2.81, 2.86, 2.95, 3.11]
+  console.log([0.2062711864406782, computeEffectiveMonthlyInterestRate(jun2018Interest, 2, 118)])
+}
+
+const testHandleSwitchFrom = function (string) {
+  const handleSwitchFrom = webtask.__get__('handleSwitchFrom')
+
+  handleSwitchFrom(string)
+    .then(console.log)
+
+  const minAmountForSwitchingToBeWorthIt = webtask.__get__('minAmountForSwitchingToBeWorthIt')
+  const buildSwitchDecision = webtask.__get__('buildSwitchDecision')
+  const jun2018Interest = [1.68, 2.14, 2.21, 2.21, 2.30, 2.52, 2.67, 2.81, 2.96, 3.12]
+  const aug2018Interest = [1.78, 2.16, 2.37, 2.54, 2.67, 2.76, 2.81, 2.86, 2.95, 3.11]
+  console.log(buildSwitchDecision([minAmountForSwitchingToBeWorthIt(jun2018Interest,
+                                                                   aug2018Interest,
+                                                                   2, 120),
+                                   jun2018Interest,
+                                   aug2018Interest]))
+}
+
 const arrayEqual = function (a, b) {
   return a.toString() === b.toString()
 }
@@ -93,5 +118,9 @@ if (process.argv.length == 2) {
                            [ 'jun 18', 131 ]))
     console.log(arrayEqual(testExtractHoldDuration('jun 18'),
                            [ 'jun 18', 120 ]))
+  } else if ('--monthlyInterestRate'.startsWith(process.argv[2])) {
+    testMonthlyInterestRate()
+  } else if ('--handleSwitchFrom'.startsWith(process.argv[2])) {
+    testHandleSwitchFrom(process.argv[3])
   }
 }
