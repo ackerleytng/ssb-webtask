@@ -59,7 +59,9 @@ const testHandleSwitchFrom = function (string) {
 
   handleSwitchFrom(string)
     .then(console.log)
+}
 
+const testSwitchFrom = function () {
   const minAmountForSwitchingToBeWorthIt = webtask.__get__('minAmountForSwitchingToBeWorthIt')
   const buildSwitchDecision = webtask.__get__('buildSwitchDecision')
   const jun2018Interest = [1.68, 2.14, 2.21, 2.21, 2.30, 2.52, 2.67, 2.81, 2.96, 3.12]
@@ -122,5 +124,7 @@ if (process.argv.length == 2) {
     testMonthlyInterestRate()
   } else if ('--handleSwitchFrom'.startsWith(process.argv[2])) {
     testHandleSwitchFrom(process.argv[3])
+  } else if ('--testSwitchFrom'.startsWith(process.argv[2])) {
+    testSwitchFrom()
   }
 }
