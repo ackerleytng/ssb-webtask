@@ -93,7 +93,7 @@ const extractMonth = (string) => {
         const month = matches[matches.length - 1];
         return {
           remainder: string.replace(month, '').trim(),
-          month: (i + 1).toString(),
+          month: i + 1,
         };
       }
     }
@@ -174,6 +174,8 @@ const getBondInterestInfo = async ({ year, month }) => {
  * Sends the message message. msg is the Message object that Telegram sent us
  */
 const sendMessage = (msg, apiKey, message) => {
+  console.log({msg, apiKey, message});
+
   const options = {
     form: {
       // If Message is defined, chat and id are mandatory fields
@@ -275,7 +277,7 @@ const computeSwitchFromResponse = async (rest) => {
 
   return buildSwitchDecision(
     moment(), currInfo.interest,
-    moment().year(year).month(month), prevInfo.interest,
+    moment().year(year).month(month - 1), prevInfo.interest,
     holdMonths,
   );
 };
