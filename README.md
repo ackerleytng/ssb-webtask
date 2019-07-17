@@ -18,7 +18,7 @@ Try:
 Put this up on webtask.io
 
 ```
-wt create --secret botApiKey=<your-api-key> ./webtask.js --name ssb-bot
+npx wt create --secret botApiKey=<your-api-key> ./webtask.js --name ssb-bot
 ```
 
 And register this webhook with Telegram
@@ -36,7 +36,7 @@ When the registration is done, you should see something like
 ## Updating
 
 ```
-wt update ssb-bot ./webtask.js
+npx wt update ssb-bot ./webtask.js
 ```
 
 ## Testing
@@ -45,7 +45,8 @@ Test parsing the webpage with
 
 ```
 ./main.js
-./main.js --current
-./main.js --past 2016 8
-./main.js --parse
+./main.js --interest
+./main.js --bond-info 2016 08
+./main.js --parse /fetch
+./main.js --parse /switchfrom jun 18
 ```
