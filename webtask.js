@@ -340,30 +340,36 @@ const getMessage = function (ctx) {
   return undefined
 }
 
-const parseInput = function (message) {
-  if (message.text.startsWith('/fetch')) {
-    return ['fetch', message.text.replace(/\/fetch@?[a-zA-Z]*/, '').trim()]
-  } else if (message.text.startsWith('/start')) {
-    return ['start']
-  } else if (message.text.startsWith('/disclaimer')) {
-    return ['disclaimer']
-  } else if (message.text.startsWith('/switchfrom')) {
-    return ['switchfrom', message.text.replace(/\/switchfrom@?[a-zA-Z]*/, '').trim()]
+const parseInput = function (messageText) {
+  if (messageText.startsWith('/fetch')) {
+    return {
+      type: 'fetch',
+      rest: messageText.replace(/\/fetch@?[a-zA-Z]*/, '').trim()
+    };
+  } else if (messageText.startsWith('/start')) {
+    return { type: 'start' };
+  } else if (messageText.startsWith('/disclaimer')) {
+    return { type: 'disclaimer' };
+  } else if (messageText.startsWith('/switchfrom')) {
+    return {
+      type: 'switchfrom',
+      rest: messageText.replace(/\/switchfrom@?[a-zA-Z]*/, '').trim()
+    }
+  } else {
+    console.log(`|${messageText}| ignored`);
+    return {};
   }
-
-  console.log(`|${message.text}| ignored`)
-  return undefined
 }
 
 module.exports = function (ctx, cb) {
   const msg = getMessage(ctx)
-  if (typeof msg === 'undefined') {
+  if (!msg) {
     cb(null, {status: 'Message object undefined'})
     return
   }
 
-  const cmd = parseInput(msg)
-  if (typeof cmd === 'undefined') {
+  const cmd = parseInput(msg.text)
+  if (!cmd.type) {
     cb(null, {status: 'can\'t handle message'})
     return
   }
