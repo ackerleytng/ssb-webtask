@@ -30,7 +30,7 @@ const getUrl = (url) => {
 
 const extractResponse = data => data.result.records[0];
 
-const niceDate = string => moment(string).format('MMM D YYYY');
+const niceDate = string => moment(string, 'YYYY-MM-DD').format('MMM D YYYY');
 
 const padYear = (year) => {
   if (year.length === 2) {
@@ -128,12 +128,14 @@ const extractBondInfo = (data) => {
   };
 };
 
-const getBondInfo = (year, month) => {
+const getBondInfo = (year, month, useAnnounceDate) => {
   // Checked - the api doesn't seem to care about invalid dates,
   //   like if the month doesn't have 31 days
   const paddedMonth = month.toString().padStart(2, '0');
   const range = `[${year}-${paddedMonth}-01 TO ${year}-${paddedMonth}-31]`;
-  return getUrl(`https://www.mas.gov.sg/api/v1/bondsandbills/m/listsavingbonds?rows=1&filters=issue_date:${range}`)
+
+  const filter = useAnnounceDate ? 'ann_date' : 'issue_date';
+  return getUrl(`https://www.mas.gov.sg/api/v1/bondsandbills/m/listsavingbonds?rows=1&filters=${filter}:${range}`)
     .then(extractResponse)
     .then(extractBondInfo);
 };
@@ -159,11 +161,19 @@ const getInterestInfo = issueCode => (
 const getBondInterestInfo = async ({ year, month }) => {
   const now = moment();
   const yr = year || now.year();
-  const mth = month || now.month();
+  // Because momentjs' month is 0-based
+  const mth = month || now.month() + 1;
 
-  const bondInfo = await getBondInfo(yr, mth);
+  // useAnnounceDate when neither are specified
+  const useAnnounceDate = !year && !month;
+
+  const bondInfo = await getBondInfo(yr, mth, useAnnounceDate);
   const interestInfo = await getInterestInfo(bondInfo.issueCode);
-  return { ...bondInfo, ...interestInfo };
+
+  const result = { ...bondInfo, ...interestInfo };
+  console.log({result});
+
+  return result;
 };
 
 //-----------------------------------------------------
@@ -276,8 +286,8 @@ const computeSwitchFromResponse = async (rest) => {
   const prevInfo = await getBondInterestInfo({ year, month });
 
   return buildSwitchDecision(
-    moment(), currInfo.interest,
-    moment().year(year).month(month - 1), prevInfo.interest,
+    moment(currInfo.issueDate), currInfo.interest,
+    moment(prevInfo.issueDate), prevInfo.interest,
     holdMonths,
   );
 };
