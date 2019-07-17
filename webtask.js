@@ -15,20 +15,6 @@ const disclaimer = [
 // Helpers
 //-----------------------------------------------------
 
-const buildObj = function (pairs) {
-  const obj = {}
-  for (const p of pairs) {
-    if (p.length > 2) {
-      [k, ...v] = p
-    } else {
-      [k, v] = p
-    }
-    obj[k] = v
-  }
-
-  return obj
-}
-
 const getUrl = (url, args) => {
   const options = {
     url: url,
@@ -42,17 +28,7 @@ const getUrl = (url, args) => {
 
 const extractResponse = data => data.result.records[0];
 
-const buildSummary = function (parsedPage) {
-  const [issuanceDetails, issuanceRates] = parsedPage
-  const [opens, closes, results] = parseApplicationPeriod(issuanceDetails['Application period'])
-  return (`${issuanceDetails['Bond ID']}, ` +
-          `${issuanceDetails['Issue date']} - ` +
-          `${issuanceDetails['Maturity date']}\n` +
-          `Application opens ${opens}, ` +
-          `closes ${closes}\n` +
-          `Interest (yrs 1-10): ${issuanceRates['interest'].join(' ')}\n` +
-          `Averages (yrs 1-10): ${issuanceRates['avgInterest'].join(' ')}`)
-}
+const niceDate = string => moment(string).format('MMM D YYYY');
 
 //-----------------------------------------------------
 // Bond info
@@ -75,8 +51,10 @@ const extractBondInfo = (data) => {
 };
 
 const getBondInfo = (year, month) => {
-  // Checked - the api doesn't seem to care about invalid dates, like if the month doesn't have 31 days
-  const range = `[${year}-${month}-01 TO ${year}-${month}-31]`;
+  // Checked - the api doesn't seem to care about invalid dates,
+  //   like if the month doesn't have 31 days
+  const paddedMonth = month.toString().padStart(2, '0');
+  const range = `[${year}-${paddedMonth}-01 TO ${year}-${paddedMonth}-31]`;
   return getUrl(`https://www.mas.gov.sg/api/v1/bondsandbills/m/listsavingbonds?rows=1&filters=issue_date:${range}`)
     .then(extractResponse)
     .then(extractBondInfo);
@@ -86,7 +64,7 @@ const getBondInfo = (year, month) => {
 // Interest info
 //-----------------------------------------------------
 
-const extractInterestInfo = data => {
+const extractInterestInfo = (data) => {
   const indices = Array(10).fill(0);
   const interest = indices.map((e, i) => data[`year${i + 1}_coupon`]);
   const avgInterest = indices.map((e, i) => data[`year${i + 1}_return`]);
@@ -99,6 +77,16 @@ const getInterestInfo = (issueCode) => (
     .then(extractResponse)
     .then(extractInterestInfo)
 );
+
+const getBondInterestInfo = async ({ year, month }) => {
+  const now = moment();
+  const yr = year ? year : now.year();
+  const mth = month ? month : now.month();
+
+  const bondInfo = await getBondInfo(yr, mth);
+  const interestInfo = await getInterestInfo(bondInfo.issueCode);
+  return { ...bondInfo, ...interestInfo };
+};
 
 //-----------------------------------------------------
 // Handling output
@@ -123,39 +111,33 @@ const sendMessage = function (msg, apiKey, message) {
 //-----------------------------------------------------
 
 /**
- * Extract hold duration and return the remainder of the string
- * ('/switchfrom' is elided), since it would be removed from the string already
- * + jun 18, hold 60 months
- * + jun 18, hold 5 years
- * + jun 18, hold 7.4 years
- * + jun 18, hold 1 year 6 months
- * + jun 18
+ * Extract hold duration. Assumes that input is of a form similar to
+ * + "hold 60 months"
+ * + "hold 5 years"
+ * + "hold 7.4 years"
+ * + "hold 1 year 6 months"
+ * + ""
  */
-const extractHoldDuration = function (string) {
-  if (!(string.match(/year/i) || string.match(/month/i))) {
-    if (string.includes(',') || string.match(/hold/i)) {
-      throw ('I don\'t understand how long you want to hold the bond for!\n' +
-             'Try something like "jun 18, hold 5 years"')
-    } else {
-      return [string, 120]
-    }
+const extractHoldDuration = (string) => {
+  if (string.trim().length === 0) {
+    return 120;
+  } else if (!(string.match(/year/i) || string.match(/month/i))) {
+    throw ('I don\'t understand how long you want to hold the bond for!\n' +
+           'Try something like "jun 18, hold 5 years"');
   } else {
-    const yearMonthMatches = string.match(/,?\s*hold\s*(\d+)\s*years?\s*(\d+)\s*months?/i)
+    const yearMonthMatches = string.match(/,?\s*hold\s*(\d+)\s*years?\s*(\d+)\s*months?/i);
     if (yearMonthMatches) {
-      const months = parseInt(yearMonthMatches[1]) * 12 + parseInt(yearMonthMatches[2])
-      return [string.replace(yearMonthMatches[0], '').trim(), months]
+      return parseInt(yearMonthMatches[1]) * 12 + parseInt(yearMonthMatches[2]);
     }
 
-    const monthMatches = string.match(/,?\s*hold\s*([\d\.]+)\s*months?/i)
+    const monthMatches = string.match(/,?\s*hold\s*([\d\.]+)\s*months?/i);
     if (monthMatches) {
-      const months = Math.floor(parseFloat(monthMatches[1]))
-      return [string.replace(monthMatches[0], '').trim(), months]
+      return Math.floor(parseFloat(monthMatches[1]));
     }
 
-    const yearMatches = string.match(/,?\s*hold\s*([\d\.]+)\s*years?/i)
+    const yearMatches = string.match(/,?\s*hold\s*([\d\.]+)\s*years?/i);
     if (yearMatches) {
-      const months = Math.floor(parseFloat(yearMatches[1]) * 12)
-      return [string.replace(yearMatches[0], '').trim(), months]
+      return Math.floor(parseFloat(yearMatches[1]) * 12);
     }
 
     throw ('Not sure if i understand what you meant!\n' +
@@ -186,14 +168,12 @@ const minAmountForSwitchingToBeWorthIt = function(prevInterests, currInterests,
   return 400 / actualMonthsCanHold / (currEffectiveRate - prevEffectiveRate)
 }
 
-const buildSwitchDecision = function (currDate, currInterests, prevDate, prevInterests,
+const buildSwitchDecision = function (curr, currInterests, prev, prevInterests,
                                       holdMonths) {
-  const prev = moment(prevDate, 'DD MMM YYYY')
-  const curr = moment(currDate, 'DD MMM YYYY')
   const monthsIn = curr.diff(prev, 'months')
 
-  const minAmt = minAmountForSwitchingToBeWorthIt(prevInterests.map(parseFloat),
-                                                  currInterests.map(parseFloat),
+  const minAmt = minAmountForSwitchingToBeWorthIt(prevInterests,
+                                                  currInterests,
                                                   monthsIn, holdMonths)
 
   const sentences = [`${prev.format('MMM YYYY')} Interest Rates: ${prevInterests.join(', ')}`,
@@ -208,25 +188,57 @@ const buildSwitchDecision = function (currDate, currInterests, prevDate, prevInt
   return sentences.join('\n')
 }
 
-const handleSwitchFrom = function (rest) {
-  try {
-    const [remainder, holdMonths] = extractHoldDuration(rest)
+const computeSwitchFromResponse = async (rest) => {
+  const { remainder, year, month } = parseYearMonth(rest);
+  const holdMonths = extractHoldDuration(remainder);
 
-    const pCurrent = getUrl('http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx')
-          .then(parsePage)
-          .then(([issuanceDetails, issuanceRates]) =>
-                [issuanceDetails['Issue date'], issuanceRates['interest']])
-    const pPrev = goGetPastSsb(remainder)
-          .then(parsePastPage)
-          .then(info => [info['Issue Date'], info['Interest']])
+  const currInfo = await getBondInterestInfo({});
+  const prevInfo = await getBondInterestInfo({ year, month });
 
-    return Promise.all([pCurrent, pPrev])
-      .then(([[currDate, currInterests], [prevDate, prevInterests]]) =>
-            buildSwitchDecision(currDate, currInterests,
-                                prevDate, prevInterests,
-                                holdMonths))
-  } catch (e) {
-    return new Promise((resolve, reject) => reject(e))
+  return buildSwitchDecision(
+    moment(), currInfo.interest,
+    moment().year(year).month(month), prevInfo.interest,
+    holdMonths);
+}
+
+//-----------------------------------------------------
+// Handle fetch
+//-----------------------------------------------------
+
+const buildSummary = (info) => [
+  `${info.issueCode}, ${niceDate(info.issueDate)} - ${niceDate(info.maturityDate)}`,
+  `Application opens ${niceDate(info.openingDate)}, 6pm, closes ${niceDate(info.closingDate)}, 9pm`,
+  `Interest (yrs 1-10): ${info.interest.join(' ')}`,
+  `Averages (yrs 1-10): ${info.avgInterest.join(' ')}`,
+].join('\n');
+
+const computeFetchResponse = async (rest) => {
+  const yearMonth = (!rest || rest.length === 0)
+        ? {}
+        : parseYearMonth(rest);
+
+  return getBondInterestInfo(yearMonth);
+}
+
+//-----------------------------------------------------
+// Dispatch commands
+//-----------------------------------------------------
+
+const computeResponse = function ({ command, rest }) {
+  console.log({ command, rest });
+
+  switch (command) {
+    case 'start':
+      return ['Hello!'].concat(disclaimer).join('\n');
+    case 'disclaimer':
+      return disclaimer;
+    case 'fetch':
+      return computeFetchResponse(rest)
+        .then(buildSummary);
+    case 'switchfrom':
+      return computeSwitchFromResponse(rest);
+    default:
+      throw new Error('I didn\'t understand that!');
   }
 }
 
@@ -234,68 +246,43 @@ const handleSwitchFrom = function (rest) {
 // Handling inputs
 //-----------------------------------------------------
 
-const handleFetch = function (rest) {
-  if (rest.length === 0) {
-    return getUrl('http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx')
-      .then(parsePage)
-      .then(buildSummary)
-  } else {
-    return goGetPastSsb(rest)
-      .then(parsePastPage)
-      .then(buildPastSummary)
-  }
-}
-
-const handleCmd = function (cmd, rest) {
-  console.log({cmd: cmd})
-  console.log({rest: rest})
-  if (cmd === 'start') {
-    const lines = ['Hello!'].concat(disclaimer)
-    return new Promise((resolve, reject) => resolve(lines.join('\n')))
-  } else if (cmd === 'disclaimer') {
-    return new Promise((resolve, reject) => resolve(disclaimer.join('\n')))
-  } else if (cmd === 'fetch') {
-    return handleFetch(rest)
-  } else if (cmd === 'switchfrom') {
-    return handleSwitchFrom(rest)
-  } else {
-    return new Promise((resolve, reject) => reject('I didn\'t understand that!'))
-  }
-}
-
-const padYear = function (year) {
+const padYear = (year) => {
   if (year.length == 2) {
-    if (parseInt(year) < 50) {
-      return `20${year}`
-    } else {
-      return `19${year}`
-    }
-  } else {
-    return year
+    return (parseInt(year) < 50)
+      ? `20${year}`
+      : `19${year}`;
   }
-}
+
+  return year;
+};
 
 /**
  * Extracts the year from this string.
- * Returns [remainder of string (trimmed), year]
+ * Returns {
+ *   remainder: remainder of string (trimmed),
+ *   year
+ * }
  */
 const extractYear = function (string) {
   // Match 4 digit numbers first
-  let possibleYears = string.match(/\d{4}/g)
+  let possibleYears = string.match(/\d{4}/g);
 
+  // Then try 2 digit numbers
   if (!possibleYears) {
-    possibleYears = string.match(/\d{2}/g)
+    possibleYears = string.match(/\d{2}/g);
   }
 
+  // Still no luck
   if (!possibleYears) {
-    return [string, undefined]
+    return { remainder: string };
   }
 
   // Assume the last number is the year
-  const year = possibleYears[possibleYears.length - 1]
-  const remainder = string.replace(year, '').trim()
+  const foundYear = possibleYears[possibleYears.length - 1];
+  const remainder = string.replace(foundYear, '').trim();
 
-  return [remainder, padYear(year)]
+  const year = padYear(foundYear);
+  return { remainder, year };
 }
 
 const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
@@ -304,7 +291,10 @@ const monthRegexes = months.map(s => new RegExp(`${s}[a-z]*`, 'ig'))
 
 /**
  * Extracts the month from this string.
- * Returns [remainder of string (trimmed), month (as string)]
+ * Returns {
+ *   remainder: remainder of string (trimmed),
+ *   month: month (as string)
+ * }
  */
 const extractMonth = function (string) {
   const words = string.split(' ')
@@ -315,68 +305,69 @@ const extractMonth = function (string) {
       if (matches) {
         // Assume the last one is the correct one
         const month = matches[matches.length - 1]
-        return [string.replace(month, '').trim(), (i + 1).toString()]
+        return {
+          remainder: string.replace(month, '').trim(),
+          month: (i + 1).toString(),
+        }
       }
     }
   }
 
-  return [string, undefined]
+  return { remainder: string };
 }
 
-const parseYearMonth = function (string) {
-  let [remainder, year] = extractYear(string)
-  let [_, month] = extractMonth(remainder)
-  return [year, month]
+const parseYearMonth = (string) => {
+  const { remainder: yearRemainder, year } = extractYear(string);
+  const { remainder, month } = extractMonth(yearRemainder);
+  return { year, month, remainder };
 }
 
-const getMessage = function (ctx) {
+const getMessage = (ctx) => {
   // Figure out message or edited_message first
   if (typeof ctx.body.message !== 'undefined') {
-    return ctx.body.message
+    return ctx.body.message;
   } else if (typeof ctx.body.edited_message !== 'undefined') {
-    return ctx.body.edited_message
+    return ctx.body.edited_message;
   }
 
-  return undefined
-}
+  return undefined;
+};
 
-const parseInput = function (messageText) {
+const parseCommand = (messageText) => {
   if (messageText.startsWith('/fetch')) {
     return {
-      type: 'fetch',
+      command: 'fetch',
       rest: messageText.replace(/\/fetch@?[a-zA-Z]*/, '').trim()
     };
   } else if (messageText.startsWith('/start')) {
-    return { type: 'start' };
+    return { command: 'start' };
   } else if (messageText.startsWith('/disclaimer')) {
-    return { type: 'disclaimer' };
+    return { command: 'disclaimer' };
   } else if (messageText.startsWith('/switchfrom')) {
     return {
-      type: 'switchfrom',
+      command: 'switchfrom',
       rest: messageText.replace(/\/switchfrom@?[a-zA-Z]*/, '').trim()
     }
   } else {
     console.log(`|${messageText}| ignored`);
-    return {};
+    throw new Error('I didn\'t understand that!');
   }
-}
+};
 
-module.exports = function (ctx, cb) {
-  const msg = getMessage(ctx)
+module.exports = (ctx, cb) => {
+  const msg = getMessage(ctx);
   if (!msg) {
-    cb(null, {status: 'Message object undefined'})
-    return
+    cb(null, {status: 'Message object undefined'});
+    return;
   }
 
-  const cmd = parseInput(msg.text)
-  if (!cmd.type) {
-    cb(null, {status: 'can\'t handle message'})
-    return
-  }
+  const messagePromise = new Promise((resolve, reject) => resolve(msg.text));
 
-  handleCmd(...cmd)
+  messagePromise
+    .then(parseCommand)
+    .then(computeResponse)
     .then(m => sendMessage(msg, ctx.secrets.botApiKey, m))
-    .catch(e => sendMessage(msg, ctx.secrets.botApiKey, e))
+    .catch(e => sendMessage(msg, ctx.secrets.botApiKey, e));
 
-  cb(null, {status: 'ok'})
-}
+  cb(null, {status: 'ok'});
+};
