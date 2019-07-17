@@ -3,39 +3,24 @@
 const rewire = require('rewire')
 const webtask = rewire('./webtask.js')
 
-const testCurrentSsb = function () {
-  const getUrl = webtask.__get__('getUrl')
-  const parsePage = webtask.__get__('parsePage')
-  const buildSummary = webtask.__get__('buildSummary')
+const testGetInterestInfo = () => {
+  const getInterestInfo = webtask.__get__('getInterestInfo');
 
-  console.log('testCurrentSsb =======')
-  getUrl('http://www.sgs.gov.sg/savingsbonds/Your-SSB/This-months-bond.aspx')
-    .then(parsePage)
-    .then(buildSummary)
-    .then(s => console.log(s))
+  console.log('testGetInterestInfo =======');
+  getInterestInfo('GX19080E').then(s => console.log(s));
 }
 
-const testFetchPast = function (year, month) {
-  const getUrl = webtask.__get__('getUrl')
-  const getPastSsb = webtask.__get__('getPastSsb')
-  const parseHiddenFields = webtask.__get__('parseHiddenFields')
-  const parsePastPage = webtask.__get__('parsePastPage')
-  const buildPastSummary = webtask.__get__('buildPastSummary')
+const testGetBondInfo =  (year, month) => {
+  const getBondInfo = webtask.__get__('getBondInfo');
 
-  console.log('testFetchPast ========')
-  getUrl('https://secure.sgs.gov.sg/fdanet/StepupInterest.aspx')
-    .then(parseHiddenFields)
-    .then(hiddenFields => getPastSsb(5, hiddenFields, year, month))
-    .then(parsePastPage)
-    .then(buildPastSummary)
-    .then(s => console.log(s))
-    .catch(e => console.log(e))
+  console.log('testGetBondInfo =======');
+  getBondInfo(year, month).then(s => console.log(s));
 }
 
 const testParseYearMonth = function (string) {
   const parseYearMonth = webtask.__get__('parseYearMonth')
 
-  result = parseYearMonth(string)
+  const result = parseYearMonth(string)
   console.log(result)
   return result
 }
@@ -78,14 +63,13 @@ const arrayEqual = function (a, b) {
 }
 
 if (process.argv.length == 2) {
-  testCurrentSsb()
-  testFetchPast('2018', '6')
-  testParseYearMonth('june 18')
+  testGetInterestInfo();
+  testGetBondInfo('2018', '6');
 } else if (process.argv.length > 2) {
   if ('--current'.startsWith(process.argv[2])) {
-    testCurrentSsb()
+    testGetInterestInfo()
   } else if ('--past'.startsWith(process.argv[2])) {
-    testFetchPast(process.argv[3], process.argv[4])
+    testGetBondInfo(process.argv[3], process.argv[4])
   } else if ('--parse'.startsWith(process.argv[2])) {
     console.log(arrayEqual(testParseYearMonth('june 2018'), ['2018', '6']))
     console.log(arrayEqual(testParseYearMonth('june 18'), ['2018', '6']))

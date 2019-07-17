@@ -1,4 +1,3 @@
-const cheerio = require('cheerio')
 const request = require('request-promise-native')
 const math = require('mathjs')
 const moment = require('moment')
@@ -30,142 +29,18 @@ const buildObj = function (pairs) {
   return obj
 }
 
-const getUrl = function (url) {
+const getUrl = (url, args) => {
   const options = {
     url: url,
     headers: {
-      'User-Agent': 'ssb-bot'
-    }
+      'User-Agent': 'https://t.me/SsbFriendBot'
+    },
+    json: true,
   }
   return request(options)
 }
 
-//-----------------------------------------------------
-// Getting past SSB
-//-----------------------------------------------------
-
-const parseHiddenFields = function (page) {
-  const $ = cheerio.load(page)
-  return {
-    __VIEWSTATE: $('#__VIEWSTATE').attr('value'),
-    __VIEWSTATEGENERATOR: $('#__VIEWSTATEGENERATOR').attr('value'),
-    __EVENTVALIDATION: $('#__EVENTVALIDATION').attr('value')
-  }
-}
-
-const doGetPastSsb = function (hiddenFields, year, month) {
-  return request
-    .post('https://secure.sgs.gov.sg/fdanet/StepupInterest.aspx')
-    .form(Object.assign(hiddenFields, {
-      ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$StartYearDropDownList: year,
-      ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$StartMonthDropDownList: month,
-      ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$IssueCodeTextBox: '',
-      ctl00$ctl00$ContentPlaceHolder1$BodyContentPlaceHolder$DownloadButton: 'Download'
-    }))
-}
-
-const getPastSsb = function (retries, hiddenFields, year, month) {
-  return doGetPastSsb(hiddenFields, year, month)
-    .catch(function (e) {
-      if (retries === 1) throw e
-      console.log({retries: retries})
-      return getPastSsb(retries - 1, hiddenFields, year, month)
-    })
-}
-
-const parsePastPage = function ([page, year, month]) {
-  if (page.includes('No Results Found')) {
-    throw `Can't find SSB data for ${moment(`${year} ${month}`, 'YYYY MM').format('MMM YYYY')}!`
-  }
-
-  const clean = page
-        .split('\n')
-        .map(s => s
-             .replace(':', '%')
-             .replace(/[",\*]/g, ''))
-        .filter(s => s.includes('%'))
-        .map(s => s
-             .split('%')
-             .filter(s => s.length > 0))
-  return buildObj(clean)
-}
-
-const buildPastSummary = function (info) {
-  return (`${info['Issue Code']}, ` +
-          `${info['Issue Date']} - ` +
-          `${info['Maturity Date']}\n` +
-          `Interest (yrs 1-10): ${info['Interest'].join(' ')}\n` +
-          `Averages (yrs 1-10): ${info['Average p.a. return'].join(' ')}`)
-}
-
-const goGetPastSsb = function (rest) {
-  const [year, month] = parseYearMonth(rest)
-  if (typeof year === 'undefined') {
-    return new Promise((resolve, reject) => reject('Couldn\'t find a valid year!'))
-  } else if (typeof month === 'undefined') {
-    return new Promise((resolve, reject) => reject('Couldn\'t find a valid month!'))
-  } else {
-    return getUrl('https://secure.sgs.gov.sg/fdanet/StepupInterest.aspx')
-      .then(parseHiddenFields)
-      .then(hiddenFields => getPastSsb(5, hiddenFields, year, month))
-      .then(p => [p, year, month])
-  }
-}
-
-//-----------------------------------------------------
-// Getting current SSB
-//-----------------------------------------------------
-
-const parseIssuanceDetails = function (html) {
-  const rows = html.split('</tr>')
-  const items = rows
-        .map(s => s.split('<td>'))
-        .filter(s => s.length > 1)
-        .map(p => p.map(s => s
-                        .replace(/<.*?>/g, '')
-                        .replace(/\(\d+\)/g, '')
-                        .replace(/&#xA0;/g, ' ')
-                        .replace(/\s+/g, ' ')
-                        .trim()))
-  return buildObj(items)
-}
-
-const parseIssuanceRates = function (html) {
-  const rows = html.split('</tr>')
-  const items = rows
-        .map(s => s.split(/<\/t[dh]>/))
-        .map(a => {
-          a.splice(0, 1)
-          return a
-        })
-        .filter(s => s.length > 1)
-        .map(a => a
-             .map(s => s
-                  .replace(/<.*?>/g, '')
-                  .replace(/&#xA0;/g, ' ')
-                  .replace(/\s+/g, ' ')
-                  .trim())
-             .filter(v => v.length > 1))
-  return {
-    'interest': items[0],
-    'avgInterest': items[1]
-  }
-}
-
-const swapCommas = function (text) {
-  return text.split(', ').reverse().join(' ')
-}
-
-const parseApplicationPeriod = function (text) {
-  return text
-    .split(/[A-Z][a-z]+:/)
-    .filter(s => s.length > 1)
-    .map(s => s
-         .replace('Keep track of the important dates with our SSB calendar.', '')
-         .replace('After', 'after')
-         .trim())
-    .map(swapCommas)
-}
+const extractResponse = data => data.result.records[0];
 
 const buildSummary = function (parsedPage) {
   const [issuanceDetails, issuanceRates] = parsedPage
@@ -179,12 +54,51 @@ const buildSummary = function (parsedPage) {
           `Averages (yrs 1-10): ${issuanceRates['avgInterest'].join(' ')}`)
 }
 
-const parsePage = function (page) {
-  const $ = cheerio.load(page)
-  const issuanceDetails = parseIssuanceDetails($('tbody').html())
-  const issuanceRates = parseIssuanceRates($('.scroll-table tbody').html())
-  return [issuanceDetails, issuanceRates]
+//-----------------------------------------------------
+// Bond info
+//-----------------------------------------------------
+
+const extractBondInfo = (data) => {
+  const issueCode = data.issue_code;
+  const issueDate = data.issue_date;
+  const maturityDate = data.maturity_date;
+  const openingDate = data.ann_date;
+  const closingDate = data.last_day_to_apply;
+
+  return {
+    issueCode,
+    issueDate,
+    maturityDate,
+    openingDate,
+    closingDate,
+  };
+};
+
+const getBondInfo = (year, month) => {
+  // Checked - the api doesn't seem to care about invalid dates, like if the month doesn't have 31 days
+  const range = `[${year}-${month}-01 TO ${year}-${month}-31]`;
+  return getUrl(`https://www.mas.gov.sg/api/v1/bondsandbills/m/listsavingbonds?rows=1&filters=issue_date:${range}`)
+    .then(extractResponse)
+    .then(extractBondInfo);
+};
+
+//-----------------------------------------------------
+// Interest info
+//-----------------------------------------------------
+
+const extractInterestInfo = data => {
+  const indices = Array(10).fill(0);
+  const interest = indices.map((e, i) => data[`year${i + 1}_coupon`]);
+  const avgInterest = indices.map((e, i) => data[`year${i + 1}_return`]);
+
+  return { interest, avgInterest };
 }
+
+const getInterestInfo = (issueCode) => (
+  getUrl(`https://www.mas.gov.sg/api/v1/bondsandbills/m/savingbondsinterest?rows=1&filters=issue_code:${issueCode}`)
+    .then(extractResponse)
+    .then(extractInterestInfo)
+);
 
 //-----------------------------------------------------
 // Handling output
