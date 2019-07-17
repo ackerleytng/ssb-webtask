@@ -95,7 +95,7 @@ const getBondInterestInfo = async ({ year, month }) => {
 /**
  * Sends the message message. msg is the Message object that Telegram sent us
  */
-const sendMessage = function (msg, apiKey, message) {
+const sendMessage = (msg, apiKey, message) => {
   const options = {
     form: {
       // If Message is defined, chat and id are mandatory fields
@@ -145,8 +145,8 @@ const extractHoldDuration = (string) => {
   }
 }
 
-const computeEffectiveMonthlyInterestRate = function (interests, numMonthsIn,
-                                                      numMonthsGoingToHold) {
+const computeEffectiveMonthlyInterestRate = (interests, numMonthsIn,
+                                             numMonthsGoingToHold) => {
   const monthlyInterests = interests.reduce((acc, i) => acc.concat(new Array(12).fill(i / 12)), [])
   const remainingMonths = monthlyInterests.length - numMonthsIn
   const monthsToHold = Math.min(remainingMonths, numMonthsGoingToHold)
@@ -154,8 +154,8 @@ const computeEffectiveMonthlyInterestRate = function (interests, numMonthsIn,
   return math.mean(monthlyInterests.slice(numMonthsIn, numMonthsIn + monthsToHold))
 }
 
-const minAmountForSwitchingToBeWorthIt = function(prevInterests, currInterests,
-                                                  numMonthsIn, numMonthsGoingToHold) {
+const minAmountForSwitchingToBeWorthIt = (prevInterests, currInterests,
+                                          numMonthsIn, numMonthsGoingToHold) => {
   const actualMonthsCanHold = Math.min(120 - numMonthsIn, numMonthsGoingToHold)
   const prevEffectiveRate = computeEffectiveMonthlyInterestRate(prevInterests, numMonthsIn,
                                                                 actualMonthsCanHold)
@@ -168,8 +168,8 @@ const minAmountForSwitchingToBeWorthIt = function(prevInterests, currInterests,
   return 400 / actualMonthsCanHold / (currEffectiveRate - prevEffectiveRate)
 }
 
-const buildSwitchDecision = function (curr, currInterests, prev, prevInterests,
-                                      holdMonths) {
+const buildSwitchDecision = (curr, currInterests, prev, prevInterests,
+                                      holdMonths) => {
   const monthsIn = curr.diff(prev, 'months')
 
   const minAmt = minAmountForSwitchingToBeWorthIt(prevInterests,
@@ -224,7 +224,7 @@ const computeFetchResponse = async (rest) => {
 // Dispatch commands
 //-----------------------------------------------------
 
-const computeResponse = function ({ command, rest }) {
+const computeResponse = ({ command, rest }) => {
   console.log({ command, rest });
 
   switch (command) {
@@ -263,7 +263,7 @@ const padYear = (year) => {
  *   year
  * }
  */
-const extractYear = function (string) {
+const extractYear = (string) => {
   // Match 4 digit numbers first
   let possibleYears = string.match(/\d{4}/g);
 
@@ -296,7 +296,7 @@ const monthRegexes = months.map(s => new RegExp(`${s}[a-z]*`, 'ig'))
  *   month: month (as string)
  * }
  */
-const extractMonth = function (string) {
+const extractMonth = (string) => {
   const words = string.split(' ')
 
   for (const w of words) {
