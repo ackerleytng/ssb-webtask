@@ -1,5 +1,8 @@
+/* eslint-disable no-underscore-dangle */
+
 const moment = require('moment');
 const rewire = require('rewire');
+
 const webtask = rewire('./webtask');
 
 const parseCommand = webtask.__get__('parseCommand');
@@ -53,14 +56,14 @@ test('parseYearMonth', () => {
   expect(parseYearMonth('15 jan')).toEqual({ remainder: '', year: '2015', month: '1' });
   expect(parseYearMonth('16 feb')).toEqual({ remainder: '', year: '2016', month: '2' });
   expect(parseYearMonth('March 16')).toEqual({ remainder: '', year: '2016', month: '3' });
-  expect(parseYearMonth('foo 16')).toEqual({ remainder: 'foo', year:'2016', month: undefined});
-  expect(parseYearMonth(' apr 16')).toEqual({ remainder: '', year:'2016', month: '4'});
-  expect(parseYearMonth(' jully 13')).toEqual({ remainder: '', year:'2013', month: '7'});
-  expect(parseYearMonth(' aug 14')).toEqual({ remainder: '', year:'2014', month: '8'});
-  expect(parseYearMonth(' September    14')).toEqual({ remainder: '', year:'2014', month: '9'});
-  expect(parseYearMonth('oct    18')).toEqual({ remainder: '', year:'2018', month: '10'});
-  expect(parseYearMonth('November 17')).toEqual({ remainder: '', year:'2017', month: '11'});
-  expect(parseYearMonth('decem 17')).toEqual({ remainder: '', year:'2017', month: '12'});
+  expect(parseYearMonth('foo 16')).toEqual({ remainder: 'foo', year: '2016', month: undefined });
+  expect(parseYearMonth(' apr 16')).toEqual({ remainder: '', year: '2016', month: '4' });
+  expect(parseYearMonth(' jully 13')).toEqual({ remainder: '', year: '2013', month: '7' });
+  expect(parseYearMonth(' aug 14')).toEqual({ remainder: '', year: '2014', month: '8' });
+  expect(parseYearMonth(' September    14')).toEqual({ remainder: '', year: '2014', month: '9' });
+  expect(parseYearMonth('oct    18')).toEqual({ remainder: '', year: '2018', month: '10' });
+  expect(parseYearMonth('November 17')).toEqual({ remainder: '', year: '2017', month: '11' });
+  expect(parseYearMonth('decem 17')).toEqual({ remainder: '', year: '2017', month: '12' });
 });
 
 test('extractHoldDuration', () => {
@@ -85,10 +88,11 @@ test('computeEffectiveMonthlyInterestRate', () => {
 
   expect(computeEffectiveMonthlyInterestRate(jun2018Interest, 2, 118))
     .toBeCloseTo(0.2062711864406782);
+  expect(computeEffectiveMonthlyInterestRate(aug2018Interest, 2, 118))
+    .toBeCloseTo(0.21790960451977395);
 });
 
-test('minAmountForSwitchingToBeWorthIt', () => {
-  const minAmountForSwitchingToBeWorthIt = webtask.__get__('minAmountForSwitchingToBeWorthIt');
+test('buildSwitchDecision', () => {
   const buildSwitchDecision = webtask.__get__('buildSwitchDecision');
   const jun2018Interest = [1.68, 2.14, 2.21, 2.21, 2.30, 2.52, 2.67, 2.81, 2.96, 3.12];
   const aug2018Interest = [1.78, 2.16, 2.37, 2.54, 2.67, 2.76, 2.81, 2.86, 2.95, 3.11];
@@ -98,7 +102,8 @@ test('minAmountForSwitchingToBeWorthIt', () => {
     aug2018Interest,
     moment().year(2018).month('jun'),
     jun2018Interest,
-    120);
+    120,
+  );
 
   expect(message).toContain('should switch');
   expect(message).toContain('SGD 315');
