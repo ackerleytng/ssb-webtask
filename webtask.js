@@ -310,7 +310,7 @@ const computeResponse = ({ command, rest }) => {
     case 'start':
       return ['Hello!'].concat(disclaimer).join('\n');
     case 'disclaimer':
-      return disclaimer;
+      return disclaimer.join('\n');
     case 'fetch':
       return computeFetchResponse(rest)
         .then(buildSummary);

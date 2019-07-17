@@ -23,7 +23,12 @@ const testGetBondInfo = (year, month) => {
 const testParse = (message) => {
   const parseCommand = webtask.__get__('parseCommand');
   const computeResponse = webtask.__get__('computeResponse');
-  computeResponse(parseCommand(message))
+
+  const messagePromise = new Promise(resolve => resolve(message));
+
+  messagePromise
+    .then(parseCommand)
+    .then(computeResponse)
     .then(m => console.log(m));
 };
 
