@@ -94,12 +94,12 @@ test('minAmountForSwitchingToBeWorthIt', () => {
   const aug2018Interest = [1.78, 2.16, 2.37, 2.54, 2.67, 2.76, 2.81, 2.86, 2.95, 3.11];
 
   const message = buildSwitchDecision(
-    moment().year(2018).month(8),
+    moment().year(2018).month('aug'),
     aug2018Interest,
-    moment().year(2018).month(6),
+    moment().year(2018).month('jun'),
     jun2018Interest,
     120);
 
   expect(message).toContain('should switch');
-  expect(message).toContain('SGD 348');
+  expect(message).toContain('SGD 315');
 });
