@@ -75,4 +75,5 @@ const handler = async (apiKey: string, request: TelegramRequest): Promise<void> 
 
 export {
     handler,
+    parseCommand as __test__parseCommand
 };

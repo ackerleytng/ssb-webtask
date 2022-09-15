@@ -124,4 +124,7 @@ const computeSwitchFromResponse = async (argString: string): Promise<string> => 
 
 export {
     computeSwitchFromResponse,
+    extractHoldDuration as __test__extractHoldDuration,
+    computeEffectiveMonthlyInterestRate as __test__computeEffectiveMonthlyInterestRate,
+    buildSwitchDecision as __test__buildSwitchDecision,
 };

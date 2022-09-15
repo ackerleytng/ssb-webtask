@@ -44,14 +44,6 @@ wrangler publish
 
 ## Testing
 
-> TODO restore this with actual test cases
-
-Test parsing the webpage with
-
 ```
-./main.js
-./main.js --interest
-./main.js --bond-info 2016 08
-./main.js --parse /fetch
-./main.js --parse /switchfrom jun 18
+yarn test
 ```
