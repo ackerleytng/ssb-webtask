@@ -3,10 +3,15 @@ const getUrl = async (url: string): Promise<any> => {
     const options = {
         headers: {
             'User-Agent': 'https://t.me/SsbFriendBot',
-            'Content-Type': 'application/json',
         },
     };
+
     const result = await fetch(url, options);
+
+    if (!result.ok) {
+        throw `fetch(${url}) returned ${result.status} ${result.statusText}`;
+    }
+
     return result.json();
 };
 
@@ -22,16 +27,16 @@ interface BondInfo {
     closingDate: string,
 }
 
-const getBondInfo = async (year: string, month: string, useAnnounceDate: boolean): Promise<BondInfo | undefined> => {
+const getBondInfo = async (year: string, month: string): Promise<BondInfo | undefined> => {
     // Checked - the api doesn't seem to care about invalid dates,
     //   like if the month doesn't have 31 days
     const paddedMonth = month.toString().padStart(2, '0');
-    const range = `[${year}-${paddedMonth}-01 TO ${year}-${paddedMonth}-31]`;
+    const issueDateFilter = `${year}-${paddedMonth}*`;
 
-    const filter = useAnnounceDate ? 'ann_date' : 'issue_date';
-    const url = `https://www.mas.gov.sg/api/v1/bondsandbills/m/listsavingbonds?rows=1&filters=${filter}:${range}`;
+    const url = `https://eservices.mas.gov.sg/statistics/api/v1/bondsandbills/m/listsavingbonds?rows=1&filters=issue_date:${issueDateFilter}`;
 
     const data = await getUrl(url);
+
     const result = data?.result?.records?.[0];
     if (!result) {
         return;
@@ -78,10 +83,7 @@ const getBondInterestInfo = async (year?: string, month?: string): Promise<BondI
     // Because month is 0-based
     const mth = month || (now.getMonth() + 1).toString();
 
-    // useAnnounceDate when neither are specified
-    const useAnnounceDate = !year && !month;
-
-    const bondInfo = await getBondInfo(yr, mth, useAnnounceDate);
+    const bondInfo = await getBondInfo(yr, mth);
     if (!bondInfo) {
         return;
     }
