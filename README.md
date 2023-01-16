@@ -33,17 +33,29 @@ When the registration is done, you should see something like
 ## Setting `TELEGRAM_API_KEY`
 
 ```
-wrangler secret put TELEGRAM_API_KEY
+npm exec wrangler secret put TELEGRAM_API_KEY
+```
+
+## Developing
+
+```
+npm run dev
+```
+
+Send a request to the local server with
+
+```
+curl -X POST http://localhost:43389/ -H 'Content-Type: application/json' -d '{"message":{"chat": {"id": 1}, "text": "/fetch dec 2021"}}'
 ```
 
 ## Updating
 
 ```
-wrangler publish
+npm run deploy
 ```
 
 ## Testing
 
 ```
-yarn test
+npm run test
 ```
