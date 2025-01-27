@@ -70,7 +70,7 @@ const extractInterestInfo = (data: any): InterestInfo => {
 };
 
 const getInterestInfo = async (issueCode: string): Promise<InterestInfo> => {
-    const url = `https://www.mas.gov.sg/api/v1/bondsandbills/m/savingbondsinterest?rows=1&filters=issue_code:${issueCode}`;
+    const url = `https://eservices.mas.gov.sg/statistics/api/v1/bondsandbills/m/savingbondsinterest?rows=1&filters=issue_code:${issueCode}`;
     const data = await getUrl(url);
     return extractInterestInfo(data.result.records[0]);
 };
