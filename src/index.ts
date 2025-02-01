@@ -6,15 +6,15 @@ export interface Env {
 }
 
 export default {
-    async fetch(
-        request: Request,
-        env: Env,
-    ): Promise<Response> {
-        const data: TelegramRequest = await request.json();
+  async fetch(
+    request: Request,
+    env: Env,
+  ): Promise<Response> {
+    const data: TelegramRequest = await request.json();
 
-        // TODO remove await
-        await handler(env.TELEGRAM_API_KEY, data);
+    // TODO remove await
+    await handler(env.TELEGRAM_API_KEY, data);
 
-        return new Response('OK');
-    },
+    return new Response('OK');
+  },
 };

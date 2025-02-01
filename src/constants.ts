@@ -3,6 +3,6 @@ const disclaimer = 'SsbFriendBot tries to be as accurate as possible while readi
 const noInfo = 'Could not find bond interest info.';
 
 export {
-    disclaimer,
-    noInfo,
+  disclaimer,
+  noInfo,
 };

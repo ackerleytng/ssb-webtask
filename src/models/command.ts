@@ -4,5 +4,5 @@ interface Command {
 }
 
 export type {
-    Command,
+  Command,
 };

@@ -13,7 +13,7 @@ interface TelegramRequest {
 }
 
 export type {
-    TelegramChat,
-    TelegramMessage,
-    TelegramRequest,
+  TelegramChat,
+  TelegramMessage,
+  TelegramRequest,
 };
