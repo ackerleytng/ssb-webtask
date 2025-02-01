@@ -37,7 +37,8 @@ export default [
       quotes: ['error', 'single'],
       semi: ['error', 'always'],
     },
-
+  },
+  {
     ignores: ['.wrangler/'],
   },
 ];
